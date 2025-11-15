@@ -47,6 +47,11 @@ class SignUpViewModel @Inject constructor(
     }
     
     fun signUp() {
+        // Prevent multiple clicks
+        if (_state.value.isLoading) {
+            return
+        }
+        
         Log.d(TAG, "📝 Bắt đầu đăng ký...")
         
         // Validate input
@@ -102,8 +107,10 @@ class SignUpViewModel @Inject constructor(
             Log.w(TAG, "⚠️ Mật khẩu không có số (vẫn cho phép)")
         }
         
+        // Set loading state immediately for instant UI feedback (on main thread)
+        _state.value = _state.value.copy(isLoading = true, error = null)
+        
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
             Log.d(TAG, "⏳ Đang tạo tài khoản trên Firebase...")
             Log.d(TAG, "📧 Email: $email")
             Log.d(TAG, "👤 Username: $username")

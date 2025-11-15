@@ -1,5 +1,6 @@
 package com.example.todolist2.presentation.auth.signup
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,6 +30,7 @@ fun SignUpScreen(
     viewModel: SignUpViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     LaunchedEffect(state.isSignUpSuccessful) {
         if (state.isSignUpSuccessful) {
@@ -38,32 +40,51 @@ fun SignUpScreen(
         }
     }
     
+    // Show error snackbar when error occurs
+    LaunchedEffect(state.error, state.isLoading) {
+        if (state.error != null && !state.isLoading) {
+            val error = state.error!!
+            if (!error.contains("Vui lòng nhập", ignoreCase = true) &&
+                !error.contains("phải có ít nhất", ignoreCase = true) &&
+                !error.contains("không hợp lệ", ignoreCase = true) &&
+                !error.contains("chỉ được chứa", ignoreCase = true)) {
+                snackbarHostState.showSnackbar(
+                    message = error,
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Đăng ký") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(
+                        onClick = { navController.navigateUp() },
+                        enabled = !state.isLoading
+                    ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         },
         snackbarHost = {
-            if (state.error != null) {
-                Snackbar {
-                    Text(state.error ?: "")
-                }
-            }
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
@@ -160,9 +181,26 @@ fun SignUpScreen(
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable {
-                        navController.navigateUp()
+                        if (!state.isLoading) {
+                            navController.navigateUp()
+                        }
                     }
                 )
+            }
+            }
+            
+            // Loading overlay
+            if (state.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }

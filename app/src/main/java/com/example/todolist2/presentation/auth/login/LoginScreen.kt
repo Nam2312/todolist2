@@ -1,5 +1,6 @@
 package com.example.todolist2.presentation.auth.login
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,6 +30,7 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     // Navigate to home on successful login
     LaunchedEffect(state.isLoginSuccessful) {
@@ -39,23 +41,40 @@ fun LoginScreen(
         }
     }
     
-    Scaffold(
-        snackbarHost = {
-            if (state.error != null) {
-                Snackbar {
-                    Text(state.error ?: "")
-                }
+    // Show error snackbar when error occurs (for server errors after login attempt)
+    LaunchedEffect(state.error, state.isLoading) {
+        // Only show snackbar if error occurs after login attempt (when isLoading becomes false)
+        if (state.error != null && !state.isLoading) {
+            val error = state.error!!
+            // Show snackbar for all errors except simple validation errors
+            if (!error.contains("Vui lòng nhập", ignoreCase = true) &&
+                !error.contains("phải có ít nhất", ignoreCase = true) &&
+                !error.contains("không hợp lệ", ignoreCase = true)) {
+                snackbarHostState.showSnackbar(
+                    message = error,
+                    duration = SnackbarDuration.Long
+                )
             }
         }
+    }
+    
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
             // Logo and Title
             Text(
                 text = "✓",
@@ -87,7 +106,9 @@ fun LoginScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
+                enabled = !state.isLoading,
+                isError = state.error != null && (state.error?.contains("email", ignoreCase = true) == true || 
+                    state.error?.contains("Email", ignoreCase = true) == true)
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -102,8 +123,25 @@ fun LoginScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
+                enabled = !state.isLoading,
+                isError = state.error != null && (state.error?.contains("mật khẩu", ignoreCase = true) == true || 
+                    state.error?.contains("password", ignoreCase = true) == true)
             )
+            
+            // Show error message below password field if exists
+            state.error?.let { error ->
+                if (!error.contains("Firebase", ignoreCase = true) && 
+                    !error.contains("network", ignoreCase = true) &&
+                    !error.contains("connection", ignoreCase = true)) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -171,6 +209,21 @@ fun LoginScreen(
                 enabled = !state.isLoading
             ) {
                 Text("Đăng nhập với Google", fontSize = 16.sp)
+            }
+            }
+            
+            // Loading overlay
+            if (state.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }

@@ -25,15 +25,18 @@ enum class BadgeType(
     TASK_100("task_100", "Bậc thầy", "Hoàn thành 100 tasks", 100),
     
     STREAK_3("streak_3", "3 ngày liên tiếp", "Hoàn thành task 3 ngày liên tục", 3),
+    STREAK_5("streak_5", "5 ngày giữ chuỗi", "Giữ chuỗi hoàn thành 5 ngày liên tục", 5),
     STREAK_7("streak_7", "Tuần hoàn hảo", "Hoàn thành task 7 ngày liên tục", 7),
+    STREAK_10("streak_10", "10 ngày giữ chuỗi", "Giữ chuỗi hoàn thành 10 ngày liên tục", 10),
+    STREAK_10_COMPLETE("streak_10_complete", "10 ngày hoàn thành", "Hoàn thành task 10 ngày liên tiếp", 10),
     STREAK_30("streak_30", "Tháng vàng", "Hoàn thành task 30 ngày liên tục", 30),
-    
-    FOCUS_10("focus_10", "Tập trung", "Hoàn thành 10 phiên Focus", 10),
-    FOCUS_50("focus_50", "Zen Master", "Hoàn thành 50 phiên Focus", 50),
     
     LEVEL_5("level_5", "Cấp 5", "Đạt level 5", 5),
     LEVEL_10("level_10", "Cấp 10", "Đạt level 10", 10),
     LEVEL_20("level_20", "Cấp 20", "Đạt level 20", 20)
 }
+
+
+
 
 

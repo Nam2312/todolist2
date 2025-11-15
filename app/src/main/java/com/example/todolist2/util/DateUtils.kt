@@ -74,6 +74,53 @@ object DateUtils {
         calendar.set(Calendar.MILLISECOND, 999)
         return calendar.timeInMillis
     }
+    
+    fun formatDate(calendar: Calendar, pattern: String = "yyyy-MM-dd"): String {
+        val formatter = SimpleDateFormat(pattern, Locale.getDefault())
+        return formatter.format(calendar.time)
+    }
+    
+    fun parseDate(dateString: String, pattern: String = "yyyy-MM-dd"): Calendar {
+        val formatter = SimpleDateFormat(pattern, Locale.getDefault())
+        val date = formatter.parse(dateString) ?: Date()
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        return calendar
+    }
+    
+    /**
+     * Get the start of week (Monday) for a given date
+     */
+    fun getStartOfWeek(calendar: Calendar = Calendar.getInstance()): Calendar {
+        val cal = calendar.clone() as Calendar
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        // Convert to Monday = 1, Sunday = 7
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        cal.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal
+    }
+    
+    /**
+     * Get week label (e.g., "Tuần 1: 01/01 - 07/01")
+     */
+    fun getWeekLabel(weekStart: Calendar): String {
+        val startDate = formatDate(weekStart.timeInMillis, "dd/MM")
+        val weekEnd = weekStart.clone() as Calendar
+        weekEnd.add(Calendar.DAY_OF_MONTH, 6)
+        val endDate = formatDate(weekEnd.timeInMillis, "dd/MM")
+        return "$startDate - $endDate"
+    }
 }
+
+
+
 
 

@@ -68,9 +68,16 @@ class AuthRepositoryImpl @Inject constructor(
         return authDataSource.getUserProfile(userId)
     }
     
+    override fun observeUserProfile(userId: String): Flow<User> {
+        return authDataSource.observeUserProfile(userId)
+    }
+    
     override suspend fun updateUserProfile(user: User): Resource<Unit> {
         return authDataSource.updateUserProfile(user)
     }
 }
+
+
+
 
 

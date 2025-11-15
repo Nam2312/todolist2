@@ -62,19 +62,14 @@ fun HomeScreen(
                 TaskListScreen(navController = mainNavController)
             }
             
-            // Module 2: Focus Mode
-            composable(BottomNavItem.Focus.route) {
-                FocusPlaceholderScreen()
-            }
-            
             // Module 3: Analytics & Gamification
             composable(BottomNavItem.Stats.route) {
-                StatsPlaceholderScreen()
+                com.example.todolist2.presentation.gamification.StatsScreen()
             }
             
             // Module 1: Profile
             composable(BottomNavItem.Profile.route) {
-                ProfilePlaceholderScreen()
+                com.example.todolist2.presentation.profile.ProfileScreen(navController = mainNavController)
             }
         }
     }
@@ -89,7 +84,6 @@ sealed class BottomNavItem(val route: String, val title: String, val icon: andro
 
 val bottomNavItems = listOf(
     BottomNavItem.Tasks,
-    BottomNavItem.Focus,
     BottomNavItem.Stats,
     BottomNavItem.Profile
 )

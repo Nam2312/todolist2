@@ -42,6 +42,11 @@ class LoginViewModel @Inject constructor(
     }
     
     fun login() {
+        // Prevent multiple clicks
+        if (_state.value.isLoading) {
+            return
+        }
+        
         Log.d(TAG, "🔐 Bắt đầu đăng nhập...")
         
         // Validate input
@@ -72,8 +77,10 @@ class LoginViewModel @Inject constructor(
             return
         }
         
+        // Set loading state immediately for instant UI feedback (on main thread)
+        _state.value = _state.value.copy(isLoading = true, error = null)
+        
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
             Log.d(TAG, "⏳ Đang gửi request đến Firebase...")
             
             try {
@@ -143,6 +150,10 @@ class LoginViewModel @Inject constructor(
                 "Tài khoản đã bị khóa"
             else -> error
         }
+    }
+    
+    fun clearError() {
+        _state.update { it.copy(error = null) }
     }
 }
 

@@ -163,5 +163,20 @@ class FirebaseAuthDataSource @Inject constructor(
             Resource.Error(e.message ?: "Failed to update profile")
         }
     }
+    
+    fun observeUserProfile(userId: String): Flow<User> = callbackFlow {
+        val subscription = firestore.collection("users")
+            .document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val user = snapshot?.toObject(User::class.java)?.copy(id = snapshot.id)
+                    ?: User(id = userId)
+                trySend(user)
+            }
+        awaitClose { subscription.remove() }
+    }
 }
 
