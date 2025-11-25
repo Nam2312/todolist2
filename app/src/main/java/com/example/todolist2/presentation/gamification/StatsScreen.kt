@@ -149,7 +149,8 @@ fun OverviewTab(state: StatsState) {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Calculate level points dynamically from totalPoints to avoid stale level data
+                // Calculate level points dynamically from totalPoints to avoid stale level
+
                 val currentLevelMinPoints = remember(displayLevel) {
                     if (displayLevel <= 1) 0 else {
                         ((displayLevel - 1) * (displayLevel - 1)) * 100
