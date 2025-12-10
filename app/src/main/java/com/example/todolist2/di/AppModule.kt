@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.todolist2.data.local.TodoDatabase
 import com.example.todolist2.data.local.dao.FocusSessionDao
+import com.example.todolist2.data.local.dao.GroupDao
 import com.example.todolist2.data.local.dao.TaskDao
 import com.example.todolist2.data.local.dao.TodoListDao
 import com.google.firebase.auth.FirebaseAuth
@@ -49,6 +50,12 @@ object AppModule {
     @Singleton
     fun provideFocusSessionDao(database: TodoDatabase): FocusSessionDao {
         return database.focusSessionDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideGroupDao(database: TodoDatabase): GroupDao {
+        return database.groupDao()
     }
     
     // Firebase

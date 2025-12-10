@@ -32,7 +32,16 @@ sealed class Screen(val route: String) {
     // Profile & Settings (Module 1)
     object Profile : Screen("profile")
     object Settings : Screen("settings")
+    
+    // Groups (Social/Collaboration)
+    object Groups : Screen("groups")
+    object CreateGroup : Screen("create_group")
+    object JoinGroup : Screen("join_group")
+    object GroupDetail : Screen("group_detail/{groupId}") {
+        fun createRoute(groupId: String) = "group_detail/$groupId"
+    }
 }
+
 
 
 

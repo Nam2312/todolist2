@@ -188,5 +188,68 @@ class SignUpViewModel @Inject constructor(
             else -> error
         }
     }
+    
+    fun handleGoogleSignIn() {
+        // Placeholder for Google Sign-In
+        // TODO: Implement Google Sign-In flow
+        // This requires:
+        // 1. Add dependency: implementation("com.google.android.gms:play-services-auth:20.7.0")
+        // 2. Configure OAuth 2.0 client ID in Firebase Console
+        // 3. Implement GoogleSignInClient and Activity Result API
+        // For now, showing error message
+        _state.update { 
+            it.copy(
+                error = "Google Sign-In chưa được cấu hình. Vui lòng sử dụng đăng ký bằng email."
+            )
+        }
+    }
+    
+    fun signInWithGoogle(idToken: String) {
+        if (_state.value.isLoading) {
+            return
+        }
+        
+        Log.d(TAG, "🔐 Bắt đầu đăng ký với Google...")
+        _state.update { it.copy(isLoading = true, error = null) }
+        
+        viewModelScope.launch {
+            try {
+                val result = authRepository.signInWithGoogle(idToken)
+                
+                when (result) {
+                    is Resource.Success -> {
+                        Log.d(TAG, "✅ Đăng ký Google thành công: ${result.data.email}")
+                        _state.update { 
+                            it.copy(
+                                isLoading = false,
+                                isSignUpSuccessful = true
+                            )
+                        }
+                    }
+                    is Resource.Error -> {
+                        val errorMessage = parseFirebaseError(result.message)
+                        Log.e(TAG, "❌ Lỗi đăng ký Google: ${result.message}")
+                        _state.update { 
+                            it.copy(
+                                isLoading = false,
+                                error = errorMessage
+                            )
+                        }
+                    }
+                    else -> {
+                        Log.w(TAG, "⚠️ Kết quả không xác định")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "💥 Exception: ${e.message}", e)
+                _state.update { 
+                    it.copy(
+                        isLoading = false,
+                        error = "Lỗi không xác định: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
 }
 

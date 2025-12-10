@@ -62,6 +62,11 @@ fun HomeScreen(
                 TaskListScreen(navController = mainNavController)
             }
             
+            // Module 2: Focus Mode
+            composable(BottomNavItem.Focus.route) {
+                com.example.todolist2.presentation.focus.FocusScreen(navController = mainNavController)
+            }
+            
             // Module 3: Analytics & Gamification
             composable(BottomNavItem.Stats.route) {
                 com.example.todolist2.presentation.gamification.StatsScreen()
@@ -84,6 +89,7 @@ sealed class BottomNavItem(val route: String, val title: String, val icon: andro
 
 val bottomNavItems = listOf(
     BottomNavItem.Tasks,
+    BottomNavItem.Focus,
     BottomNavItem.Stats,
     BottomNavItem.Profile
 )

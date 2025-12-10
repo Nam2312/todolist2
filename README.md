@@ -112,7 +112,7 @@ cd todolist2
 
 ### Bước 3: Cấu hình Firestore Rules
 
-Vào Firebase Console → Firestore Database → Rules, paste rules sau:
+Vào Firebase Console → Firestore Database → Rules, paste rules sau (hoặc copy từ file `firestore.rules`):
 
 ```javascript
 rules_version = '2';
@@ -136,6 +136,42 @@ service cloud.firestore {
       // Focus sessions
       match /focus_sessions/{sessionId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Groups - public read for active groups, write for authenticated users
+    match /groups/{groupId} {
+      // Anyone authenticated can read active groups (to join by code)
+      allow read: if request.auth != null && resource.data.isActive == true;
+      // Anyone authenticated can create a group
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // Only owner or admin can update
+      allow update: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(groupId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(groupId + '_' + request.auth.uid)).data.role in ['OWNER', 'ADMIN']
+      );
+      // Only owner can delete (soft delete by setting isActive = false)
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+      
+      // Group members
+      match /members/{memberId} {
+        // Members can read other members
+        allow read: if request.auth != null;
+        // Anyone authenticated can create a member (join group)
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Only owner/admin can update/delete members
+        allow update, delete: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          exists(/databases/$(database)/documents/groups/$(groupId)/members/$(groupId + '_' + request.auth.uid)) &&
+          get(/databases/$(database)/documents/groups/$(groupId)/members/$(groupId + '_' + request.auth.uid)).data.role in ['OWNER', 'ADMIN']
+        );
+      }
+      
+      // Group tasks (for future use)
+      match /tasks/{taskId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
       }
     }
   }
@@ -244,6 +280,8 @@ MIT License - xem file LICENSE để biết thêm chi tiết.
 **Note**: File `google-services.json` hiện tại là placeholder. Bạn PHẢI thay thế nó bằng file thật từ Firebase Console để app hoạt động đầy đủ.
 
 🚀 Happy Coding!
+
+
 
 
 

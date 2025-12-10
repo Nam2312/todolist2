@@ -110,6 +110,52 @@ fun ProfileScreen(
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
+                    // Settings Button
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        TextButton(
+                            onClick = { navController.navigate(Screen.Settings.route) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Cài đặt")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Groups Button
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        TextButton(
+                            onClick = { navController.navigate(Screen.Groups.route) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Nhóm của tôi")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
                     ProfileActions(
                         onLogoutClick = viewModel::onLogoutClick
                     )

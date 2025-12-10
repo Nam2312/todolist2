@@ -9,6 +9,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -120,10 +122,60 @@ class FirestoreTaskDataSource @Inject constructor(
     }
     
     fun observeAllTasks(userId: String): Flow<List<Task>> = callbackFlow {
-        // This is a simplified version - in production you'd use a collection group query
-        val tasks = mutableListOf<Task>()
-        trySend(tasks)
-        awaitClose { }
+        // Observe lists, and whenever lists change, query all tasks from all lists
+        val listsSubscription = firestore.collection("users")
+            .document(userId)
+            .collection("lists")
+            .addSnapshotListener { listsSnapshot, listsError ->
+                if (listsError != null) {
+                    close(listsError)
+                    return@addSnapshotListener
+                }
+                
+                val listIds = listsSnapshot?.documents?.map { it.id } ?: emptyList()
+                
+                if (listIds.isEmpty()) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                // Query tasks from all lists asynchronously
+                // Note: This is a simplified approach. For better performance with many lists,
+                // consider using collection group query with proper Firestore indexes
+                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val allTasks = mutableListOf<Task>()
+                        
+                        listIds.forEach { listId ->
+                            try {
+                                val tasksSnapshot = firestore.collection("users")
+                                    .document(userId)
+                                    .collection("lists")
+                                    .document(listId)
+                                    .collection("tasks")
+                                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                                    .get()
+                                    .await()
+                                
+                                val tasks = tasksSnapshot.documents.mapNotNull {
+                                    it.toObject(Task::class.java)?.copy(id = it.id, listId = listId, userId = userId)
+                                }
+                                allTasks.addAll(tasks)
+                            } catch (e: Exception) {
+                                // Continue with other lists if one fails
+                            }
+                        }
+                        
+                        // Sort by createdAt descending
+                        val sortedTasks = allTasks.sortedByDescending { it.createdAt }
+                        trySend(sortedTasks)
+                    } catch (e: Exception) {
+                        close(e)
+                    }
+                }
+            }
+        
+        awaitClose { listsSubscription.remove() }
     }
     
     suspend fun createTask(userId: String, listId: String, task: Task): Resource<Task> {
@@ -218,6 +270,7 @@ class FirestoreTaskDataSource @Inject constructor(
         }
     }
 }
+
 
 
 

@@ -163,6 +163,16 @@ fun LoginScreen(
                 }
             }
             
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Forgot Password Link
+            TextButton(
+                onClick = { navController.navigate(Screen.ForgotPassword.route) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Quên mật khẩu?")
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             
             // Sign Up Link
@@ -202,13 +212,27 @@ fun LoginScreen(
             
             // Google Sign In Button
             OutlinedButton(
-                onClick = { /* TODO: Implement Google Sign-In */ },
+                onClick = { 
+                    // Google Sign-In implementation
+                    // Note: This requires Google Sign-In SDK dependency
+                    // Add to build.gradle.kts: implementation("com.google.android.gms:play-services-auth:20.7.0")
+                    // Then implement Google Sign-In flow with Activity Result API
+                    viewModel.handleGoogleSignIn()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 enabled = !state.isLoading
             ) {
-                Text("Đăng nhập với Google", fontSize = 16.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    // Google icon placeholder - replace with actual Google icon if available
+                    Text("G", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Đăng nhập với Google", fontSize = 16.sp)
+                }
             }
             }
             

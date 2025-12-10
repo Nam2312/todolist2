@@ -15,15 +15,23 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+enum class TaskFilter {
+    ALL, ACTIVE, COMPLETED, OVERDUE
+}
+
 data class TaskListState(
     val tasks: List<Task> = emptyList(),
+    val filteredTasks: List<Task> = emptyList(),
     val lists: List<TodoList> = emptyList(),
     val selectedListId: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val showAddTaskDialog: Boolean = false,
+    val showAddListDialog: Boolean = false,
     val editingTask: Task? = null,
-    val userDisplayName: String = ""
+    val userDisplayName: String = "",
+    val searchQuery: String = "",
+    val currentFilter: TaskFilter = TaskFilter.ALL
 )
 
 @HiltViewModel
@@ -42,6 +50,7 @@ class TaskListViewModel @Inject constructor(
     init {
         loadUserProfile()
         loadTasks()
+        loadLists()
     }
     
     private fun loadUserProfile() {
@@ -57,19 +66,78 @@ class TaskListViewModel @Inject constructor(
         }
     }
     
+    private var tasksJob: kotlinx.coroutines.Job? = null
+    
     private fun loadTasks() {
         val uid = userId ?: return
         
-        viewModelScope.launch {
+        // Cancel previous job if exists
+        tasksJob?.cancel()
+        
+        tasksJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             
-            // For now, load all tasks (will optimize later with list filtering)
-            taskRepository.observeAllTasks(uid)
+            // Load tasks based on selected list
+            val listId = _state.value.selectedListId
+            val tasksFlow = if (listId != null) {
+                taskRepository.observeTasks(uid, listId)
+            } else {
+                taskRepository.observeAllTasks(uid)
+            }
+            
+            tasksFlow
                 .catch { e ->
                     _state.update { it.copy(error = e.message, isLoading = false) }
                 }
                 .collect { tasks ->
-                    _state.update { it.copy(tasks = tasks, isLoading = false) }
+                    _state.update { 
+                        it.copy(tasks = tasks, isLoading = false)
+                    }
+                    // Apply filters after tasks are updated
+                    applyFilters()
+                }
+        }
+    }
+    
+    private fun loadTasksForList(listId: String?) {
+        val uid = userId ?: return
+        
+        // Cancel previous job if exists
+        tasksJob?.cancel()
+        
+        tasksJob = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            val tasksFlow = if (listId != null) {
+                taskRepository.observeTasks(uid, listId)
+            } else {
+                taskRepository.observeAllTasks(uid)
+            }
+            
+            tasksFlow
+                .catch { e ->
+                    _state.update { it.copy(error = e.message, isLoading = false) }
+                }
+                .collect { tasks ->
+                    _state.update { 
+                        it.copy(tasks = tasks, isLoading = false)
+                    }
+                    // Apply filters after tasks are updated
+                    applyFilters()
+                }
+        }
+    }
+    
+    private fun loadLists() {
+        val uid = userId ?: return
+        
+        viewModelScope.launch {
+            taskRepository.observeLists(uid)
+                .catch { e ->
+                    _state.update { it.copy(error = e.message) }
+                }
+                .collect { lists ->
+                    _state.update { it.copy(lists = lists) }
                 }
         }
     }
@@ -82,7 +150,14 @@ class TaskListViewModel @Inject constructor(
         _state.update { it.copy(showAddTaskDialog = false) }
     }
     
-    fun addTask(title: String, description: String = "") {
+    fun addTask(
+        title: String,
+        description: String = "",
+        priority: com.example.todolist2.domain.model.Priority = com.example.todolist2.domain.model.Priority.MEDIUM,
+        dueDate: Long? = null,
+        reminderTime: Long? = null,
+        tags: List<String> = emptyList()
+    ) {
         val uid = userId ?: return
         
         viewModelScope.launch {
@@ -104,6 +179,10 @@ class TaskListViewModel @Inject constructor(
                 userId = uid,
                 title = title.trim(),
                 description = description.trim(),
+                priority = priority,
+                dueDate = dueDate,
+                reminderTime = reminderTime,
+                tags = tags,
                 createdAt = System.currentTimeMillis()
             )
             
@@ -171,13 +250,25 @@ class TaskListViewModel @Inject constructor(
         _state.update { it.copy(editingTask = null) }
     }
     
-    fun updateTask(task: Task, title: String, description: String = "") {
+    fun updateTask(
+        task: Task,
+        title: String,
+        description: String = "",
+        priority: com.example.todolist2.domain.model.Priority? = null,
+        dueDate: Long? = null,
+        reminderTime: Long? = null,
+        tags: List<String>? = null
+    ) {
         val uid = userId ?: return
         
         viewModelScope.launch {
             val updatedTask = task.copy(
                 title = title.trim(),
-                description = description.trim()
+                description = description.trim(),
+                priority = priority ?: task.priority,
+                dueDate = dueDate,
+                reminderTime = reminderTime,
+                tags = tags ?: task.tags
             )
             taskRepository.updateTask(uid, task.listId, updatedTask)
             _state.update { it.copy(editingTask = null) }
@@ -191,6 +282,88 @@ class TaskListViewModel @Inject constructor(
             taskRepository.deleteTask(uid, task.listId, task.id)
             _state.update { it.copy(editingTask = null) }
         }
+    }
+    
+    fun updateSearchQuery(query: String) {
+        _state.update { it.copy(searchQuery = query) }
+        applyFilters()
+    }
+    
+    fun setFilter(filter: TaskFilter) {
+        _state.update { it.copy(currentFilter = filter) }
+        applyFilters()
+    }
+    
+    private fun applyFilters() {
+        val state = _state.value
+        var filtered = state.tasks
+        
+        // Apply filter
+        filtered = when (state.currentFilter) {
+            TaskFilter.ALL -> filtered
+            TaskFilter.ACTIVE -> filtered.filter { !it.isCompleted }
+            TaskFilter.COMPLETED -> filtered.filter { it.isCompleted }
+            TaskFilter.OVERDUE -> filtered.filter { 
+                !it.isCompleted && it.dueDate != null && it.dueDate < System.currentTimeMillis()
+            }
+        }
+        
+        // Apply search
+        if (state.searchQuery.isNotBlank()) {
+            val query = state.searchQuery.lowercase()
+            filtered = filtered.filter { task ->
+                task.title.lowercase().contains(query) ||
+                task.description.lowercase().contains(query) ||
+                task.tags.any { it.lowercase().contains(query) }
+            }
+        }
+        
+        _state.update { it.copy(filteredTasks = filtered) }
+    }
+    
+    fun selectList(listId: String?) {
+        _state.update { it.copy(selectedListId = listId) }
+        // Load tasks for the newly selected list
+        loadTasksForList(listId)
+    }
+    
+    fun createList(name: String, color: String = "#6200EE") {
+        val uid = userId ?: return
+        
+        viewModelScope.launch {
+            val list = TodoList(
+                id = UUID.randomUUID().toString(),
+                userId = uid,
+                name = name,
+                color = color
+            )
+            taskRepository.createList(uid, list)
+        }
+    }
+    
+    fun deleteList(listId: String) {
+        val uid = userId ?: return
+        
+        viewModelScope.launch {
+            taskRepository.deleteList(uid, listId)
+            if (_state.value.selectedListId == listId) {
+                _state.update { it.copy(selectedListId = null) }
+                loadTasks()
+            }
+        }
+    }
+    
+    fun showAddListDialog() {
+        _state.update { it.copy(showAddListDialog = true) }
+    }
+    
+    fun hideAddListDialog() {
+        _state.update { it.copy(showAddListDialog = false) }
+    }
+    
+    fun refresh() {
+        loadTasks()
+        loadLists()
     }
 }
 

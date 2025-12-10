@@ -42,7 +42,7 @@ class GamificationRepositoryImpl @Inject constructor(
             }
             
             val user = userResult.data
-            val completedTasks = taskDao.getCompletedTasks(userId).map { it.size }.first()
+            val completedTasks = taskDao.getCompletedTasks(userId).map { it.size }.firstOrNull() ?: 0
             val focusSessions = focusSessionDao.getCompletedSessionCount(userId)
             val totalFocusMinutes = focusSessionDao.getTotalFocusMinutes(userId, 0) ?: 0
             
@@ -136,7 +136,7 @@ class GamificationRepositoryImpl @Inject constructor(
             }
             
             val user = userResult.data
-            val completedTasks = taskDao.getCompletedTasks(userId).map { it.size }.first()
+            val completedTasks = taskDao.getCompletedTasks(userId).map { it.size }.firstOrNull() ?: 0
             val focusSessions = focusSessionDao.getCompletedSessionCount(userId)
             val unlockedBadgeIds = user.badgesEarned.toMutableSet()
             val newlyUnlocked = mutableListOf<Badge>()
@@ -221,19 +221,19 @@ class GamificationRepositoryImpl @Inject constructor(
                     task.completedAt!! >= startOfDay && 
                     task.completedAt!! < endOfDay 
                 }
-            }.first()
+            }.firstOrNull() ?: emptyList()
             
             val allTasks = taskDao.getAllTasks(userId).map {
                 it.filter { task ->
                     task.createdAt >= startOfDay && task.createdAt < endOfDay
                 }
-            }.first()
+            }.firstOrNull() ?: emptyList()
             
             val sessions = focusSessionDao.getAllSessions(userId).map {
                 it.filter { session ->
                     session.startTime >= startOfDay && session.startTime < endOfDay && session.completed
                 }
-            }.first()
+            }.firstOrNull() ?: emptyList()
             
             val focusMinutes = sessions.sumOf { it.durationInMinutes.toInt() }
             val pointsEarned = (tasks.size * 10) + sessions.sumOf { it.pointsEarned.toInt() }
@@ -451,14 +451,14 @@ class GamificationRepositoryImpl @Inject constructor(
         }
     }
     
-    // Helper extension to get first item from Flow
-    private suspend fun <T> Flow<T>.first(): T {
+    // Helper extension to get first item from Flow safely
+    private suspend fun <T> Flow<T>.firstOrNull(): T? {
         var result: T? = null
         collect { value ->
             result = value
             return@collect
         }
-        return result ?: throw NoSuchElementException("Flow was empty")
+        return result
     }
 }
 
