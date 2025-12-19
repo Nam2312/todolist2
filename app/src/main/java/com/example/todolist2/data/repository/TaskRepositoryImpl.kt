@@ -77,6 +77,12 @@ class TaskRepositoryImpl @Inject constructor(
         }
     }
     
+    override fun observeArchivedTasks(userId: String): Flow<List<Task>> {
+        return taskDao.getArchivedTasks(userId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+    
     override suspend fun getTaskById(taskId: String): Task? {
         return taskDao.getTaskById(taskId)?.toDomain()
     }
@@ -146,10 +152,76 @@ class TaskRepositoryImpl @Inject constructor(
         return firestoreDataSource.deleteTask(userId, listId, taskId)
     }
     
+    override suspend fun archiveTask(userId: String, listId: String, taskId: String): Resource<Unit> {
+        return try {
+            val taskEntity = taskDao.getTaskById(taskId) ?: return Resource.Error("Task not found")
+            val task = taskEntity.toDomain()
+            
+            // Don't archive if already archived
+            if (task.isArchived) {
+                return Resource.Success(Unit)
+            }
+            
+            // Update task to be archived and completed
+            val archivedTask = task.copy(
+                isArchived = true,
+                isCompleted = true,
+                completedAt = System.currentTimeMillis()
+            )
+            
+            // Update local database first
+            taskDao.updateTask(archivedTask.toEntity().copy(isSynced = false))
+            
+            // Sync to Firestore
+            val result = firestoreDataSource.updateTask(userId, listId, archivedTask)
+            
+            if (result is Resource.Success) {
+                taskDao.updateTask(archivedTask.toEntity().copy(isSynced = true))
+            }
+            
+            result
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to archive task")
+        }
+    }
+    
+    override suspend fun unarchiveTask(userId: String, listId: String, taskId: String): Resource<Unit> {
+        return try {
+            val taskEntity = taskDao.getTaskById(taskId) ?: return Resource.Error("Task not found")
+            val task = taskEntity.toDomain()
+            
+            // Don't unarchive if not archived
+            if (!task.isArchived) {
+                return Resource.Success(Unit)
+            }
+            
+            // Update task to be unarchived
+            val unarchivedTask = task.copy(isArchived = false)
+            
+            // Update local database first
+            taskDao.updateTask(unarchivedTask.toEntity().copy(isSynced = false))
+            
+            // Sync to Firestore
+            val result = firestoreDataSource.updateTask(userId, listId, unarchivedTask)
+            
+            if (result is Resource.Success) {
+                taskDao.updateTask(unarchivedTask.toEntity().copy(isSynced = true))
+            }
+            
+            result
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to unarchive task")
+        }
+    }
+    
     override suspend fun searchTasks(userId: String, query: String): List<Task> {
-        return taskDao.searchTasks(userId, query).map { entities ->
-            entities.map { it.toDomain() }
-        }.firstOrNull() ?: emptyList()
+        return try {
+            taskDao.searchTasks(userId, query).map { entities ->
+                entities.map { it.toDomain() }
+            }.firstOrNull() ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
     
     // Helper extension to get first item from Flow safely

@@ -40,6 +40,10 @@ sealed class Screen(val route: String) {
     object GroupDetail : Screen("group_detail/{groupId}") {
         fun createRoute(groupId: String) = "group_detail/$groupId"
     }
+    
+    // Archive & Calendar
+    object Archive : Screen("archive")
+    object CalendarView : Screen("calendar_view")
 }
 
 

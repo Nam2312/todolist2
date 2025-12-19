@@ -34,6 +34,9 @@ import com.example.todolist2.domain.model.Priority
 import com.example.todolist2.presentation.navigation.Screen
 import com.example.todolist2.util.DateUtils
 import java.util.Calendar
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 
 /**
  * Module 2: Main Task List Screen
@@ -62,6 +65,16 @@ fun TaskListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { 
+                        navController.navigate(Screen.CalendarView.route)
+                    }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Lịch")
+                    }
+                    IconButton(onClick = { 
+                        navController.navigate(Screen.Archive.route)
+                    }) {
+                        Icon(Icons.Default.List, contentDescription = "Lưu trữ")
+                    }
                     IconButton(onClick = { viewModel.showAddListDialog() }) {
                         Icon(Icons.Default.List, contentDescription = "Thêm danh sách")
                     }
@@ -306,12 +319,18 @@ fun TaskListScreen(
                         }
                     }
                 } else {
-                    items(state.filteredTasks) { task ->
+                    items(
+                        items = state.filteredTasks,
+                        key = { it.id }
+                    ) { task ->
                         TaskItemCard(
                             task = task,
                             onToggleComplete = { viewModel.toggleTaskComplete(task) },
                             onClick = { 
                                 navController.navigate(Screen.TaskDetail.createRoute(task.id))
+                            },
+                            onDelete = {
+                                viewModel.deleteTask(task)
                             }
                         )
                     }
@@ -367,70 +386,202 @@ fun TaskListScreen(
 fun TaskItemCard(
     task: com.example.todolist2.domain.model.Task,
     onToggleComplete: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = task.isCompleted,
-                onCheckedChange = { onToggleComplete() }
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (task.isCompleted) FontWeight.Normal else FontWeight.Medium,
-                    color = if (task.isCompleted) 
-                        MaterialTheme.colorScheme.onSurfaceVariant 
-                    else 
-                        MaterialTheme.colorScheme.onSurface
-                )
-                if (task.description.isNotEmpty()) {
-                    Text(
-                        text = task.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Tạo: ${com.example.todolist2.util.DateUtils.formatDate(task.createdAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    fontSize = 11.sp
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart && onDelete != null) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        }
+    )
+    
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.error)
+                    .padding(16.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Xóa",
+                    tint = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-            
-            // Priority indicator
-            if (task.priority.value >= 3) {
-                Surface(
-                    color = if (task.priority.value == 4) 
-                        MaterialTheme.colorScheme.error 
-                    else 
-                        MaterialTheme.colorScheme.tertiary,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = if (task.priority.value == 4) "Gấp" else "Cao",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (task.priority.value == 4) 
-                            MaterialTheme.colorScheme.onError 
-                        else 
-                            MaterialTheme.colorScheme.onTertiary
-                    )
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onClick,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = task.isCompleted,
+                    onCheckedChange = { onToggleComplete() }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = task.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (task.isCompleted) FontWeight.Normal else FontWeight.Medium,
+                            color = if (task.isCompleted) 
+                                MaterialTheme.colorScheme.onSurfaceVariant 
+                            else 
+                                MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Priority indicator
+                        PriorityBadge(priority = task.priority)
+                    }
+                    
+                    if (task.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = task.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Tags and metadata row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Tags
+                        if (task.tags.isNotEmpty()) {
+                            task.tags.take(3).forEach { tag ->
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = MaterialTheme.shapes.extraSmall
+                                ) {
+                                    Text(
+                                        text = tag,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                            if (task.tags.size > 3) {
+                                Text(
+                                    text = "+${task.tags.size - 3}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        
+                            // Due date
+                            task.dueDate?.let { dueDate ->
+                                val isOverdue = !task.isCompleted && dueDate < System.currentTimeMillis()
+                                val isToday = com.example.todolist2.util.DateUtils.isToday(dueDate)
+                                val isTomorrow = com.example.todolist2.util.DateUtils.isTomorrow(dueDate)
+                                
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = if (isOverdue) 
+                                            MaterialTheme.colorScheme.error 
+                                        else if (isToday) 
+                                            MaterialTheme.colorScheme.primary 
+                                        else 
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                Text(
+                                    text = when {
+                                        isToday -> "Hôm nay"
+                                        isTomorrow -> "Ngày mai"
+                                        isOverdue -> "Quá hạn"
+                                        else -> com.example.todolist2.util.DateUtils.formatDate(dueDate, "dd/MM")
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isOverdue) 
+                                        MaterialTheme.colorScheme.error 
+                                    else if (isToday) 
+                                        MaterialTheme.colorScheme.primary 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PriorityBadge(priority: com.example.todolist2.domain.model.Priority) {
+    val (color, textColor, label) = when (priority) {
+        com.example.todolist2.domain.model.Priority.LOW -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            "Thấp"
+        )
+        com.example.todolist2.domain.model.Priority.MEDIUM -> Triple(
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+            "TB"
+        )
+        com.example.todolist2.domain.model.Priority.HIGH -> Triple(
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.onTertiary,
+            "Cao"
+        )
+        com.example.todolist2.domain.model.Priority.URGENT -> Triple(
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.onError,
+            "Gấp"
+        )
+    }
+    
+    Surface(
+        color = color,
+        shape = MaterialTheme.shapes.extraSmall
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor,
+            fontSize = 10.sp
+        )
     }
 }
 

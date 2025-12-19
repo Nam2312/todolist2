@@ -20,7 +20,7 @@ import com.example.todolist2.data.local.entity.TodoListEntity
         GroupEntity::class,
         GroupMemberEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class TodoDatabase : RoomDatabase() {

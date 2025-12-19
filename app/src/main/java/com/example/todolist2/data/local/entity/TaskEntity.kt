@@ -21,6 +21,7 @@ data class TaskEntity(
     val createdAt: Long,
     val completedAt: Long?,
     val subTasks: String, // JSON string
+    val isArchived: Boolean = false, // For archive feature
     val isSynced: Boolean = false // For offline sync tracking
 )
 
@@ -38,6 +39,7 @@ fun TaskEntity.toDomain(): Task {
         tags = if (tags.isNotEmpty()) tags.split(",") else emptyList(),
         createdAt = createdAt,
         completedAt = completedAt,
+        isArchived = isArchived,
         subTasks = emptyList() // Will parse from JSON if needed
     )
 }
@@ -57,9 +59,13 @@ fun Task.toEntity(): TaskEntity {
         createdAt = createdAt,
         completedAt = completedAt,
         subTasks = "", // Will serialize to JSON if needed
+        isArchived = isArchived,
         isSynced = false
     )
 }
+
+
+
 
 
 

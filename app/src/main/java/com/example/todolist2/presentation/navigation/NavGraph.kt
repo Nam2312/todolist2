@@ -103,6 +103,16 @@ fun NavGraph(
                 groupId = groupId
             )
         }
+        
+        // Archive
+        composable(Screen.Archive.route) {
+            com.example.todolist2.presentation.archive.ArchiveScreen(navController = navController)
+        }
+        
+        // Calendar View
+        composable(Screen.CalendarView.route) {
+            com.example.todolist2.presentation.calendar.CalendarViewScreen(navController = navController)
+        }
     }
 }
 

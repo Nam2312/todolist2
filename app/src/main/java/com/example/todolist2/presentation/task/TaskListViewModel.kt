@@ -75,27 +75,31 @@ class TaskListViewModel @Inject constructor(
         tasksJob?.cancel()
         
         tasksJob = viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
-            
-            // Load tasks based on selected list
-            val listId = _state.value.selectedListId
-            val tasksFlow = if (listId != null) {
-                taskRepository.observeTasks(uid, listId)
-            } else {
-                taskRepository.observeAllTasks(uid)
-            }
-            
-            tasksFlow
-                .catch { e ->
-                    _state.update { it.copy(error = e.message, isLoading = false) }
+            try {
+                _state.update { it.copy(isLoading = true) }
+                
+                // Load tasks based on selected list
+                val listId = _state.value.selectedListId
+                val tasksFlow = if (listId != null) {
+                    taskRepository.observeTasks(uid, listId)
+                } else {
+                    taskRepository.observeAllTasks(uid)
                 }
-                .collect { tasks ->
-                    _state.update { 
-                        it.copy(tasks = tasks, isLoading = false)
+                
+                tasksFlow
+                    .catch { e ->
+                        _state.update { it.copy(error = e.message ?: "Lỗi khi tải dữ liệu", isLoading = false) }
                     }
-                    // Apply filters after tasks are updated
-                    applyFilters()
-                }
+                    .collect { tasks ->
+                        _state.update { 
+                            it.copy(tasks = tasks, isLoading = false, error = null)
+                        }
+                        // Apply filters after tasks are updated
+                        applyFilters()
+                    }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Lỗi không xác định", isLoading = false) }
+            }
         }
     }
     
@@ -106,25 +110,29 @@ class TaskListViewModel @Inject constructor(
         tasksJob?.cancel()
         
         tasksJob = viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
-            
-            val tasksFlow = if (listId != null) {
-                taskRepository.observeTasks(uid, listId)
-            } else {
-                taskRepository.observeAllTasks(uid)
-            }
-            
-            tasksFlow
-                .catch { e ->
-                    _state.update { it.copy(error = e.message, isLoading = false) }
+            try {
+                _state.update { it.copy(isLoading = true) }
+                
+                val tasksFlow = if (listId != null) {
+                    taskRepository.observeTasks(uid, listId)
+                } else {
+                    taskRepository.observeAllTasks(uid)
                 }
-                .collect { tasks ->
-                    _state.update { 
-                        it.copy(tasks = tasks, isLoading = false)
+                
+                tasksFlow
+                    .catch { e ->
+                        _state.update { it.copy(error = e.message ?: "Lỗi khi tải dữ liệu", isLoading = false) }
                     }
-                    // Apply filters after tasks are updated
-                    applyFilters()
-                }
+                    .collect { tasks ->
+                        _state.update { 
+                            it.copy(tasks = tasks, isLoading = false, error = null)
+                        }
+                        // Apply filters after tasks are updated
+                        applyFilters()
+                    }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Lỗi không xác định", isLoading = false) }
+            }
         }
     }
     
@@ -193,50 +201,67 @@ class TaskListViewModel @Inject constructor(
     fun toggleTaskComplete(task: Task) {
         val uid = userId ?: return
         
+        // Don't allow toggling if task is archived
+        if (task.isArchived) {
+            return
+        }
+        
         viewModelScope.launch {
             val isCompleting = !task.isCompleted
-            val updatedTask = task.copy(
-                isCompleted = isCompleting,
-                completedAt = if (isCompleting) System.currentTimeMillis() else null
-            )
             
-            // Update task in database
-            val updateResult = taskRepository.updateTask(uid, task.listId, updatedTask)
-            
-            // If task is being completed, update gamification stats
-            if (isCompleting && updateResult is Resource.Success) {
-                // Calculate points based on priority
-                var points = Constants.XP_PER_TASK
-                when (task.priority.value) {
-                    3 -> points += Constants.XP_PER_PRIORITY_HIGH // HIGH
-                    4 -> points += Constants.XP_PER_PRIORITY_URGENT // URGENT
+            if (isCompleting) {
+                // Archive task when completing
+                val archiveResult = taskRepository.archiveTask(uid, task.listId, task.id)
+                
+                if (archiveResult is Resource.Success) {
+                    // Calculate points based on priority
+                    var points = Constants.XP_PER_TASK
+                    when (task.priority.value) {
+                        3 -> points += Constants.XP_PER_PRIORITY_HIGH // HIGH
+                        4 -> points += Constants.XP_PER_PRIORITY_URGENT // URGENT
+                    }
+                    
+                    // Add points (this also updates level automatically)
+                    try {
+                        gamificationRepository.addPoints(uid, points)
+                        
+                        // Update tasksCompleted count in user profile
+                        val userResult = authRepository.getUserProfile(uid)
+                        if (userResult is Resource.Success) {
+                            val user = userResult.data
+                            val updatedUser = user.copy(tasksCompleted = user.tasksCompleted + 1)
+                            authRepository.updateUserProfile(updatedUser)
+                        }
+                        
+                        // Update streak (after updating user profile)
+                        gamificationRepository.updateStreak(uid)
+                        
+                        // Check and unlock badges (after updating stats)
+                        gamificationRepository.checkAndUnlockBadges(uid)
+                    } catch (e: Exception) {
+                        // Log error but don't crash
+                        e.printStackTrace()
+                    }
                 }
+            } else {
+                // Unarchive task when uncompleting
+                val unarchiveResult = taskRepository.unarchiveTask(uid, task.listId, task.id)
                 
-                // Add points (this also updates level automatically)
-                gamificationRepository.addPoints(uid, points)
-                
-                // Update tasksCompleted count in user profile
-                val userResult = authRepository.getUserProfile(uid)
-                if (userResult is Resource.Success) {
-                    val user = userResult.data
-                    val updatedUser = user.copy(tasksCompleted = user.tasksCompleted + 1)
-                    authRepository.updateUserProfile(updatedUser)
-                }
-                
-                // Update streak (after updating user profile)
-                gamificationRepository.updateStreak(uid)
-                
-                // Check and unlock badges (after updating stats)
-                gamificationRepository.checkAndUnlockBadges(uid)
-            } else if (!isCompleting && updateResult is Resource.Success) {
-                // If uncompleting, decrease tasksCompleted count
-                val userResult = authRepository.getUserProfile(uid)
-                if (userResult is Resource.Success) {
-                    val user = userResult.data
-                    val updatedUser = user.copy(
-                        tasksCompleted = (user.tasksCompleted - 1).coerceAtLeast(0)
-                    )
-                    authRepository.updateUserProfile(updatedUser)
+                if (unarchiveResult is Resource.Success) {
+                    try {
+                        // If uncompleting, decrease tasksCompleted count
+                        val userResult = authRepository.getUserProfile(uid)
+                        if (userResult is Resource.Success) {
+                            val user = userResult.data
+                            val updatedUser = user.copy(
+                                tasksCompleted = (user.tasksCompleted - 1).coerceAtLeast(0)
+                            )
+                            authRepository.updateUserProfile(updatedUser)
+                        }
+                    } catch (e: Exception) {
+                        // Log error but don't crash
+                        e.printStackTrace()
+                    }
                 }
             }
         }

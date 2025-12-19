@@ -18,12 +18,18 @@ interface TaskRepository {
     // Tasks
     fun observeTasks(userId: String, listId: String): Flow<List<Task>>
     fun observeAllTasks(userId: String): Flow<List<Task>>
+    fun observeArchivedTasks(userId: String): Flow<List<Task>>
     suspend fun getTaskById(taskId: String): Task?
     suspend fun createTask(userId: String, listId: String, task: Task): Resource<Task>
     suspend fun updateTask(userId: String, listId: String, task: Task): Resource<Unit>
     suspend fun deleteTask(userId: String, listId: String, taskId: String): Resource<Unit>
+    suspend fun archiveTask(userId: String, listId: String, taskId: String): Resource<Unit>
+    suspend fun unarchiveTask(userId: String, listId: String, taskId: String): Resource<Unit>
     suspend fun searchTasks(userId: String, query: String): List<Task>
 }
+
+
+
 
 
 

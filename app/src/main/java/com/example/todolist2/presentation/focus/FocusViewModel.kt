@@ -1,5 +1,6 @@
 package com.example.todolist2.presentation.focus
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.todolist2.domain.model.FocusDuration
@@ -9,9 +10,11 @@ import com.example.todolist2.domain.repository.AuthRepository
 import com.example.todolist2.domain.repository.FocusSessionRepository
 import com.example.todolist2.domain.repository.GamificationRepository
 import com.example.todolist2.domain.repository.TaskRepository
+import com.example.todolist2.util.BackgroundMusicManager
 import com.example.todolist2.util.Constants
 import com.example.todolist2.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +34,8 @@ data class FocusState(
     val totalSeconds: Int = 0,
     val currentSession: FocusSession? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isBackgroundMusicEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -39,7 +43,8 @@ class FocusViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val focusSessionRepository: FocusSessionRepository,
     private val authRepository: AuthRepository,
-    private val gamificationRepository: GamificationRepository
+    private val gamificationRepository: GamificationRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(FocusState())
@@ -49,6 +54,8 @@ class FocusViewModel @Inject constructor(
     private var startTime: Long = 0
     private var pausedTime: Long = 0
     private var totalPausedTime: Long = 0
+    
+    private val backgroundMusicManager = BackgroundMusicManager(context)
     
     private val userId: String?
         get() = authRepository.getCurrentUser()?.uid
@@ -135,6 +142,11 @@ class FocusViewModel @Inject constructor(
             )
         }
         
+        // Start background music if enabled
+        if (currentState.isBackgroundMusicEnabled) {
+            startBackgroundMusic()
+        }
+        
         // Start countdown immediately
         startCountdown()
         
@@ -150,6 +162,9 @@ class FocusViewModel @Inject constructor(
         pausedTime = System.currentTimeMillis()
         timerJob?.cancel()
         
+        // Pause background music
+        backgroundMusicManager.pauseMusic()
+        
         _state.update { it.copy(isTimerPaused = true) }
     }
     
@@ -159,6 +174,11 @@ class FocusViewModel @Inject constructor(
         val pauseDuration = System.currentTimeMillis() - pausedTime
         totalPausedTime += pauseDuration
         
+        // Resume background music if enabled
+        if (_state.value.isBackgroundMusicEnabled) {
+            backgroundMusicManager.resumeMusic()
+        }
+        
         _state.update { it.copy(isTimerPaused = false) }
         startCountdown()
     }
@@ -166,6 +186,9 @@ class FocusViewModel @Inject constructor(
     fun stopTimer() {
         timerJob?.cancel()
         timerJob = null
+        
+        // Stop background music
+        backgroundMusicManager.stopMusic()
         
         val currentState = _state.value
         val session = currentState.currentSession
@@ -248,9 +271,39 @@ class FocusViewModel @Inject constructor(
         }
     }
     
+    fun toggleBackgroundMusic() {
+        val newState = !_state.value.isBackgroundMusicEnabled
+        _state.update { it.copy(isBackgroundMusicEnabled = newState) }
+        
+        if (newState && _state.value.isTimerRunning && !_state.value.isTimerPaused) {
+            startBackgroundMusic()
+        } else if (!newState) {
+            backgroundMusicManager.stopMusic()
+        }
+    }
+    
+    private fun startBackgroundMusic() {
+        try {
+            // Try to load music from raw folder
+            // User needs to add a music file named "focus_music" (any format: mp3, ogg, wav)
+            // to app/src/main/res/raw/ folder
+            val resourceId = context.resources.getIdentifier("focus_music", "raw", context.packageName)
+            if (resourceId != 0) {
+                backgroundMusicManager.startMusic(resourceId)
+            } else {
+                // Music file not found - user needs to add music file to res/raw/
+                // The toggle will still work, but no music will play
+                android.util.Log.w("FocusViewModel", "Music file not found. Please add focus_music to res/raw/")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FocusViewModel", "Error starting background music", e)
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        backgroundMusicManager.release()
     }
 }
 

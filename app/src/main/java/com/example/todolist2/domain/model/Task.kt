@@ -16,6 +16,7 @@ data class Task(
     val tags: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
+    val isArchived: Boolean = false, // For archive feature
     
     // Sub-tasks
     val subTasks: List<SubTask> = emptyList()
@@ -33,6 +34,9 @@ enum class Priority(val value: Int) {
     HIGH(3),
     URGENT(4)
 }
+
+
+
 
 
 

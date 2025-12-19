@@ -7,25 +7,28 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
     
-    @Query("SELECT * FROM tasks WHERE userId = :userId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND isArchived = 0 ORDER BY createdAt DESC")
     fun getAllTasks(userId: String): Flow<List<TaskEntity>>
     
-    @Query("SELECT * FROM tasks WHERE listId = :listId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM tasks WHERE listId = :listId AND isArchived = 0 ORDER BY createdAt DESC")
     fun getTasksByList(listId: String): Flow<List<TaskEntity>>
+    
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND isArchived = 1 ORDER BY completedAt DESC")
+    fun getArchivedTasks(userId: String): Flow<List<TaskEntity>>
     
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     suspend fun getTaskById(taskId: String): TaskEntity?
     
-    @Query("SELECT * FROM tasks WHERE userId = :userId AND isCompleted = 0 ORDER BY dueDate ASC")
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND isCompleted = 0 AND isArchived = 0 ORDER BY dueDate ASC")
     fun getIncompleteTasks(userId: String): Flow<List<TaskEntity>>
     
-    @Query("SELECT * FROM tasks WHERE userId = :userId AND isCompleted = 1 ORDER BY completedAt DESC")
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND isCompleted = 1 AND isArchived = 0 ORDER BY completedAt DESC")
     fun getCompletedTasks(userId: String): Flow<List<TaskEntity>>
     
-    @Query("SELECT * FROM tasks WHERE userId = :userId AND dueDate IS NOT NULL AND dueDate <= :timestamp AND isCompleted = 0")
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND dueDate IS NOT NULL AND dueDate <= :timestamp AND isCompleted = 0 AND isArchived = 0")
     fun getOverdueTasks(userId: String, timestamp: Long): Flow<List<TaskEntity>>
     
-    @Query("SELECT * FROM tasks WHERE userId = :userId AND title LIKE '%' || :query || '%'")
+    @Query("SELECT * FROM tasks WHERE userId = :userId AND title LIKE '%' || :query || '%' AND isArchived = 0")
     fun searchTasks(userId: String, query: String): Flow<List<TaskEntity>>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -52,6 +55,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET isSynced = 1 WHERE id = :taskId")
     suspend fun markAsSynced(taskId: String)
 }
+
+
+
 
 
 

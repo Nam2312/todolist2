@@ -149,6 +149,37 @@ fun FocusSetupContent(
             }
         }
         
+        // Background Music Toggle
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Nhạc nền nhẹ",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Nhạc ambient giúp tập trung",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.isBackgroundMusicEnabled,
+                    onCheckedChange = { viewModel.toggleBackgroundMusic() }
+                )
+            }
+        }
+        
         Spacer(modifier = Modifier.weight(1f))
         
         // Start Button
@@ -269,6 +300,48 @@ fun FocusTimerContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            
+            // Background Music Control (if timer is running)
+            if (state.isTimerRunning) {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = if (state.isBackgroundMusicEnabled) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (state.isBackgroundMusicEnabled) "Nhạc nền: Bật" else "Nhạc nền: Tắt",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        IconButton(
+                            onClick = { viewModel.toggleBackgroundMusic() }
+                        ) {
+                            Icon(
+                                if (state.isBackgroundMusicEnabled) Icons.Default.CheckCircle else Icons.Default.Close,
+                                contentDescription = if (state.isBackgroundMusicEnabled) "Tắt nhạc" else "Bật nhạc"
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // Control Buttons
